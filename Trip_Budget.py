@@ -12,7 +12,6 @@ import hashlib
 
 SESSION_DURATION = 3600  # 1 hour
 
-# In-memory storage for session data
 sessions = {}
 
 def generate_session_id():
@@ -34,7 +33,7 @@ def get_session(session_id):
     """Get the session data for the given session ID."""
     if session_id in sessions:
         session_data = sessions[session_id]
-        session_data['last_active'] = time.time()  # Update last active time
+        session_data['last_active'] = time.time()  
         return session_data
     return None
 
@@ -69,45 +68,41 @@ def handle_request(environ):
     request_body = environ['wsgi.input'].read(request_body_size)
     request_data = request_body.decode()
 
-    # Check for session cookie
+  
     cookie = SimpleCookie(environ.get('HTTP_COOKIE'))
     session_id = cookie.get('session_id')
 
     if session_id:
         session_id = session_id.value
         if check_session(session_id):
-            # Valid session, handle the request
+            
             if environ['PATH_INFO'] == '/set_trip_budget':
                 return handle_set_trip_budget(request_data, session_id)
-            # Handle other routes here
         else:
-            # Session expired, redirect to login
             return  handle_login()
     else:
-        # No session, redirect to login
         return  handle_login()
 
 
-# Database configuration
+
 DB_NAME = "budgetplanner"
 DB_USER = "postgres"
 DB_PASSWORD = "hemanthram143"
 DB_HOST = "localhost"
 DB_PORT = "5432"
 
-# Dictionary to store active sessions
+
 active_sessions = {}
 
 
 
-# Function to generate a secure token
 def generate_token(length=16):
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for _ in range(length))
 
 
 
-# Handle login request
+
 def handle_login(username, password):
     try:
         conn = psycopg2.connect(
@@ -136,7 +131,7 @@ def handle_login(username, password):
         return False, None
 
 
-# Handle login request
+
 def handle_login_request(data):
     try:
         form_data = {}
@@ -152,7 +147,7 @@ def handle_login_request(data):
         
         success, token = handle_login(username, password)
         if success:
-            # Construct JavaScript to redirect to the dashboard page
+            
             redirect_js = f"""
             <script>
                 alert("User login Successfull.");
@@ -161,7 +156,6 @@ def handle_login_request(data):
             """
             return redirect_js
         else:
-            # JavaScript alert for invalid username or password
             invalid_alert = """
             <script>
                 alert("Invalid username or password. Please try again.");
@@ -174,7 +168,6 @@ def handle_login_request(data):
         return "An error occurred while processing your request."
 
 
-# Handle registration form
 def handle_registration_form(data):
     try:
         conn = psycopg2.connect(
@@ -190,7 +183,7 @@ def handle_registration_form(data):
         for field in data.split("&"):
             try:
                 key, value = field.split("=")
-                form_data[key] = urllib.parse.unquote_plus(value)  # Decode URL-encoded values
+                form_data[key] = urllib.parse.unquote_plus(value)  
             except ValueError:
                 print("Invalid field format:", field)
 
@@ -203,7 +196,7 @@ def handle_registration_form(data):
         cursor.close()
         conn.close()
         
-        # Construct JavaScript to redirect to the login page
+        
         redirect_js = """
         <script>
             alert("Registration successful! You can now login.");
@@ -229,7 +222,7 @@ def handle_add_expense_request(data, username):
         category = form_data.get("category", "")
         date = form_data.get("date", "")
 
-        # Retrieve the user's budget amount
+        
         conn = psycopg2.connect(
             dbname=DB_NAME,
             user=DB_USER,
@@ -243,7 +236,7 @@ def handle_add_expense_request(data, username):
         budget_amount = cursor.fetchone()
 
         if not budget_amount:
-            # If no budget is set, return an error message
+            
             cursor.close()
             conn.close()
             alert_message = "Please set a trip budget first."
@@ -255,8 +248,7 @@ def handle_add_expense_request(data, username):
             """
             return js_code
 
-        # Check if the expense exceeds the budget amount
-        budget_amount = float(budget_amount[0])  # Fetch the budget amount from the tuple
+        budget_amount = float(budget_amount[0])  
         if amount > budget_amount:
             cursor.close()
             conn.close()
@@ -269,14 +261,13 @@ def handle_add_expense_request(data, username):
             """
             return js_code
 
-        # Store the expense details in the database
+     
         cursor.execute("INSERT INTO expenses (username, amount, category, date) VALUES (%s, %s, %s, %s)",
                        (username, amount, category, date))
         conn.commit()
         cursor.close()
         conn.close()
 
-        # Construct JavaScript to display an alert message
         alert_message = "Expense added successfully!"
         js_code = f"""
         <script>
@@ -310,12 +301,11 @@ def handle_set_trip_budget(data):
         budget_amount = form_data.get("budget_amount", "")
         username = form_data.get("username", "")
 
-        # Check if the user already has a budget entry
         cursor.execute("SELECT 1 FROM trip_budgets WHERE username = %s", (username,))
         existing_budget = cursor.fetchone()
 
         if existing_budget:
-            # User already has a budget entry
+           
             alert_message = "You already have a trip budget set."
             js_code = f"""
             <script>
@@ -327,7 +317,7 @@ def handle_set_trip_budget(data):
             conn.close()
             return js_code
         else:
-            # Insert a new budget entry
+           
             cursor.execute("INSERT INTO trip_budgets (username, budget_amount) VALUES (%s, %s)", (username, budget_amount))
             conn.commit()
             cursor.close()
@@ -344,7 +334,7 @@ def handle_set_trip_budget(data):
         print("Error connecting to PostgreSQL:", e)
         return "An error occurred while processing your request."
 
-# Update the handle_request function to handle logout
+
 def handle_request(client_socket, request_data):
     try:
         print("Request data:", request_data)
@@ -366,13 +356,13 @@ def handle_request(client_socket, request_data):
         print("Request method:", request_method)
         print("Request route:", request_route)
 
-        # Find the index where the empty line occurs, separating HTTP headers from form data
+        
         empty_line_index = request_data.find("\r\n\r\n")
 
         if empty_line_index != -1 or request_method == "GET":
-            # Handle GET requests differently
+            
             if request_method == "POST":
-                form_data = request_data[empty_line_index + 4:]  # Extract form data
+                form_data = request_data[empty_line_index + 4:]  
                 if request_route == "/register":
                     response = handle_registration_form(form_data)
                 elif request_route == "/login":
@@ -497,16 +487,16 @@ def generate_transactions_page(username):
         )
         cursor = conn.cursor()
 
-        # Fetch the budget for the user
+        
         cursor.execute("SELECT budget_amount FROM trip_budgets WHERE username = %s", (username,))
         budget_row = cursor.fetchone()
         budget = budget_row[0] if budget_row else 0
 
-        # Fetch the expenses for the user
+        
         cursor.execute("SELECT amount, category, date FROM expenses WHERE username = %s", (username,))
         expenses = cursor.fetchall()
 
-        # Generate HTML for displaying transactions
+        
         transactions_html = f"""
         <html>
         <head>
@@ -544,16 +534,15 @@ def generate_transactions_page(username):
         """
         
 
-        # Initialize balance with budget
+        
         balance = budget
 
-        # Calculate balance for each expense and add to the HTML
         for expense in expenses:
             amount = expense[0]
             category = expense[1]
             date = expense[2]
 
-            # Subtract the expense amount from the balance
+            
             balance -= amount
 
             transactions_html += f"<tr><td>{amount}</td><td>{category}</td><td>{date}</td><td>{balance}</td></tr>"
@@ -610,7 +599,7 @@ def generate_set_budget_form(username):
     </html>
     """
 
-# Generate HTML content for adding expenses form
+
 def generate_add_expense_form(username):
     return f"""
     <html>
@@ -780,7 +769,6 @@ def generate_register_form():
     """
 
 
-# Function to handle logout
 def handle_logout(data):
     try:
         form_data = {}
@@ -795,7 +783,7 @@ def handle_logout(data):
 
         if token in active_sessions:
             del active_sessions[token]
-            return generate_login_form()  # Redirect to the login page after logout
+            return generate_login_form()  
         else:
             return "Invalid token."
     except Exception as e:
